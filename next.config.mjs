@@ -3,6 +3,7 @@ const nextConfig = {
   /* config options here */
   devIndicators: false,
   experimental: {
+    agentUpgrade: "security",
     agentFeedback: true,
   },
   reactCompiler: true,
