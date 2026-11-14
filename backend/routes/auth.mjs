@@ -18,7 +18,7 @@ export async function loginDoctor(request) {
       method: "POST",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify({ doctorId, password }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(60000),
     });
     const result = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {

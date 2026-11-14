@@ -18,7 +18,7 @@ api.interceptors.response.use((response) => response, (error) => {
 });
 
 export async function loginDoctor(doctorId, password) {
-  return (await api.post("/auth/login", { doctorId: Number(doctorId), password })).data;
+  return (await api.post("/auth/login", { doctorId: Number(doctorId), password }, { timeout: 70000 })).data;
 }
 
 export async function loginLabStaff(username, password) {
