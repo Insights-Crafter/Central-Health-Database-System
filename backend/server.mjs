@@ -11,6 +11,10 @@ const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const frontendDist = resolve(projectRoot, "frontend", "dist");
 const port = Number(process.env.BACKEND_PORT || 4000);
 const serveFrontendEnabled = process.env.SERVE_FRONTEND !== "false";
+const allowedFrontendOrigins = new Set((process.env.FRONTEND_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean));
 const mimeTypes = {
   ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".ico": "image/x-icon",
   ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".png": "image/png",
@@ -63,7 +67,20 @@ async function serveFrontend(pathname, nodeResponse) {
 }
 
 const server = createServer(async (nodeRequest, nodeResponse) => {
-  if (nodeRequest.method === "OPTIONS") { nodeResponse.writeHead(204); nodeResponse.end(); return; }
+  const origin = nodeRequest.headers.origin;
+  const originAllowed = Boolean(origin && allowedFrontendOrigins.has(origin));
+  if (originAllowed) {
+    nodeResponse.setHeader("Access-Control-Allow-Origin", origin);
+    nodeResponse.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    nodeResponse.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+    nodeResponse.setHeader("Access-Control-Max-Age", "600");
+    nodeResponse.setHeader("Vary", "Origin");
+  }
+  if (nodeRequest.method === "OPTIONS") {
+    nodeResponse.writeHead(originAllowed ? 204 : 403);
+    nodeResponse.end();
+    return;
+  }
 
   try {
     const url = new URL(nodeRequest.url || "/", `http://${nodeRequest.headers.host || "localhost"}`);

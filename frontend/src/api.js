@@ -1,7 +1,7 @@
 import axios from "axios";
 import { clearSession, getSession } from "./session.js";
 
-const api = axios.create({ baseURL: "/api", timeout: 15000 });
+const api = axios.create({ baseURL: "https://central-health-database-system.onrender.com/api", timeout: 15000 });
 
 api.interceptors.request.use((config) => {
   const token = getSession()?.token;
