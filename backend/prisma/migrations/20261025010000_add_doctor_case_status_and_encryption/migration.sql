@@ -1,0 +1,3 @@
+ALTER TABLE "MedicalRecords"
+ADD COLUMN "caseStatus" VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
+ADD COLUMN "clinicalDataEncrypted" BOOLEAN NOT NULL DEFAULT false;

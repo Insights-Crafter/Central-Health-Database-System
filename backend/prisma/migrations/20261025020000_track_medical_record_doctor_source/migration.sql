@@ -1,0 +1,2 @@
+ALTER TABLE "MedicalRecords"
+ADD COLUMN "doctorSource" VARCHAR(20) NOT NULL DEFAULT 'DOCTOR';
