@@ -1,29 +1,30 @@
 {
-  "name": "chds-lab-code",
-  "version": "0.1.0",
+  "name": "nhrx-doctor-portal",
+  "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "node --env-file=.env scripts/dev.mjs",
+    "build": "node scripts/build-frontend.mjs && tailwindcss -i frontend/src/styles.css -o frontend/dist/assets/styles.css",
+    "start": "node --env-file=.env backend/server.mjs",
+    "db:check": "node --env-file=.env scripts/check-db-connection.mjs",
+    "lab:create-staff": "node --env-file=.env scripts/create-lab-staff.mjs",
+    "lab:seed-demo": "node --env-file=.env scripts/seed-lab-demo.mjs",
+    "db:generate": "prisma generate --schema backend/prisma/schema.prisma",
+    "db:studio": "prisma studio --schema backend/prisma/schema.prisma"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@aws-sdk/client-s3": "^3.1168.0",
+    "@prisma/client": "^6.19.0",
     "axios": "^1.20.0",
-    "bcryptjs": "^3.0.3",
-    "dotenv": "^18.0.7",
-    "jsonwebtoken": "^9.0.3",
-    "next": "16.4.3",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "pdfkit": "^0.20.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "^4",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.4.3",
-    "prisma": "^6.19.3",
-    "tailwindcss": "^4"
+    "@tailwindcss/cli": "^4.3.5",
+    "esbuild": "^0.28.2",
+    "prisma": "^6.19.0",
+    "tailwindcss": "^4.1.0"
   }
 }

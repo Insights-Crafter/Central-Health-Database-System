@@ -1,101 +1,58 @@
-# CHDS Lab Portion (Next.js + Tailwind + Node.js API)
+# NHRX Doctor Portal
 
-Frontend and backend are in ONE Next.js project. The API files in `app/api` run on Node.js.
+React-only doctor portal. The frontend is bundled with esbuild and styled with Tailwind CSS; the local Node.js backend serves the built frontend and provides the app-facing APIs.
 
-## 1. Setup (first time)
+## Run locally
 
-```bash
-npx create-next-app@latest chds-lab      # JavaScript, Tailwind yes, App Router yes, alias @/*
-cd chds-lab
-npm install axios bcryptjs jsonwebtoken @prisma/client
-npm install -D prisma
+1. Install Node.js 20 or newer.
+2. Run `npm install`.
+3. Copy `.env.example` to `.env`. Set a valid `DATABASE_URL`, prescription R2 credentials, and `R2_REPORTS_ENDPOINT`, `R2_REPORTS_BUCKET`, `R2_REPORTS_ACCESS_KEY_ID`, and `R2_REPORTS_SECRET_ACCESS_KEY`. Keep `DOCTOR_API_BASE_URL` set to the doctor service.
+4. Run `npm run db:generate` once after install.
+5. Run `npm run db:check` to confirm the database credentials before migrating.
+6. Apply the schema changes with `npx prisma migrate deploy --schema backend/prisma/schema.prisma`.
+7. Run `npm run dev` and open `http://localhost:4000`.
+8. Create or reset lab staff accounts with `npm run lab:create-staff` (passwords are stored as scrypt hashes).
+9. For local sample accounts, run `npm run lab:seed-demo`. It generates one-time random passwords and prints them once.
+
+For a production build, run `npm run build` and then `npm start`.
+
+## Project structure
+
+```text
+frontend/
+  src/pages/       Doctor and lab staff workspaces
+  src/components/  Shared React components
+  src/api.js       Browser calls to local backend APIs
+backend/
+  routes/          Node.js API handlers
+  auth/            Doctor API session mapping
+  db/prisma.mjs    Shared Prisma database client
+  prisma/          Database schema and migrations
+  storage/r2.mjs   Private Cloudflare R2 PDF storage
+  server.mjs       Local API and static frontend server
+scripts/           Build and development scripts
 ```
 
-Copy the folders from this zip into your project (`app`, `components`, `lib`, `services`, `prisma`),
-and replace the files with the same names (`app/layout.js`, `app/globals.css`, `app/page.js`).
+## Existing API routes
 
-Tailwind note: new projects use Tailwind v4, so `globals.css` starts with `@import "tailwindcss";`.
-If your project uses Tailwind v3, replace that line with the three `@tailwind` lines.
+- `POST /api/auth/login` — proxies doctor login to `POST /doctors/auth/login`.
+- `GET /api/doctor/appointments/today` — proxies appointment fetching to `GET /doctors/me/appointments/today`.
+- `POST /api/doctor/patients/:nationalId/records` — creates a medical record, prescription PDF, and R2 object key.
+- `GET /api/doctor/patients/:nationalId/records` — reads medical history and prescription details.
+- `GET /api/doctor/patients/:nationalId/records/:recordId/prescription` — streams a stored prescription PDF.
+- `GET /api/doctor/patients/:nationalId/reports` and `GET /api/doctor/patients/:nationalId/reports/:reportId` — reads report details and streams a report file.
+- `GET /api/doctor/patients/:nationalId/tests` — reads completed test results and lab requests.
+- `POST /api/doctor/patients/:nationalId/lab-requests` ? creates a lab test request.
+- `POST /api/lab/auth/login`, `GET /api/lab/requests`, and `POST /api/lab/requests/:id/report` ? lab staff sign-in, worklist, and PDF upload.
 
-## 2. Environment
+Prescription PDFs use `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`. Radiology and laboratory reports share the private `R2_REPORTS_BUCKET`; their object keys use the `R2_RADIOLOGY_REPORTS_PREFIX` and `R2_LAB_REPORTS_PREFIX` folders. Set the `R2_REPORTS_*` endpoint and credentials before enabling uploads.
 
-Copy `.env.example` to `.env` and fill the three values (never upload `.env` to GitHub).
+Add future API handlers under `backend/routes/` and register their paths in `backend/server.mjs`. Keep database operations in those server-side handlers; import the shared client with:
 
-## 3. PostgreSQL database
+```js
+import { prisma } from "../db/prisma.mjs";
 
-The app uses PostgreSQL through Prisma. Put `DATABASE_URL`, `ENCRYPTION_KEY`, and
-`JWT_SECRET` in the ignored local `.env` file. The schema maps to the existing patient
-module's `Patients` table; it does not create a duplicate patient table. The baseline
-migration preserves the existing database, and the next migration adds only the lab
-account, test request, report, and audit tables. For an existing deployment, inspect
-the migration SQL and back up the database before applying migrations.
-
-The lab module uses these tables from `prisma/schema.prisma`:
-
-| Table | Purpose / owner |
-|---|---|
-| `Patients` | Existing patient-module table; lab requests, reports, and patient accounts reference its `patientID`. |
-| `User` | Portal login accounts; patient accounts link to `Patients`, and lab report uploads link to the staff account. |
-| `LabTestRequest` | Lab work queue, linked to `Patients` and optionally an existing `MedicalRecords` row. |
-| `LabReport` | Encrypted report file and note, linked to its request, patient, and uploading account. |
-| `AccessLog` | Records report views, downloads, and uploads for the lab audit page. |
-
-The doctor workflow selects patients from the patient module and creates lab requests;
-it does not create duplicate patient records. Lab staff upload reports for those requests.
-The patient portal reads only reports associated with the `Patients` row linked to that
-account. Patient accounts must be provisioned by a trusted administrator/seed process
-and linked to the correct patient record; public sign-up cannot claim a patient's identity.
-Passwords use `bcryptjs.hash(password, 10)`.
-
-## 4. Run
-
-```bash
-npm run dev      # http://localhost:3000
+const records = await prisma.medicalRecords.findMany();
 ```
 
-## Sign up and sign in
-
-The home page opens on staff sign-up. Staff can select Doctor or Laboratory staff; registration
-accepts only those two roles and saves accounts in the configured PostgreSQL database. After
-registration, users are returned to the sign-in form and must sign in before opening the portal
-for their selected role. Sign-in validates credentials against the same database, and the returned
-token is used for database-backed API requests.
-
-Sign-up validates full names (2–80 characters), usernames (3–30 letters, numbers, periods,
-underscores, or hyphens), passwords (at least 8 characters and at most 72 UTF-8 bytes), and matching
-password confirmation and role. Sign-in and both auth APIs validate input on the server as well.
-
-## Folder map
-
-| Folder | What it holds |
-|---|---|
-| `app/page.js` | Doctor/laboratory staff sign-up and sign-in |
-| `app/lab/*` | Lab portal: dashboard, requests, upload, reports, access log |
-| `app/doctor`, `app/patient` | Doctor overview and reports, patient reports page |
-| `app/api/*` | Node.js APIs (listed below) |
-| `components/` | PortalShell (role check + header), ReportList, CountUp |
-| `services/` | Every API call from the frontend, one file per area |
-| `lib/` | encryption, auth, prisma, axios client |
-
-## APIs
-
-| API | Who | Purpose |
-|---|---|---|
-| POST `/api/auth/register` | authorized staff | Validate and create a doctor or lab account |
-| POST `/api/auth/login` | everyone | Check login, return token and role |
-| GET `/api/patients` | DOCTOR | List patient-module records available for lab requests |
-| POST `/api/doctor/requests` | DOCTOR | Send a patient test request to the lab |
-| GET `/api/lab/dashboard` | LAB | Counts and weekly numbers |
-| GET `/api/lab/requests` | LAB | Pending test requests |
-| POST `/api/lab/requests/:id/report` | LAB | Upload report file, encrypt, mark completed |
-| GET `/api/reports` | LAB, DOCTOR, PATIENT | List reports (patient sees only own) |
-| GET `/api/reports/:id?action=view\|download` | LAB, DOCTOR, PATIENT | Decrypt and return one report, write log |
-| GET `/api/lab/access-log` | LAB | Latest 50 actions |
-
-## Notes
-
-- Encryption is AES-256-GCM (`lib/encryption.js`). The key stays in `.env`.
-- With Prisma 6 a `Bytes` column returns a Uint8Array, so the code wraps it with `Buffer.from(...)`.
-- In Next.js 15 `params` is a promise, so the routes use `await params` (also fine in Next.js 14).
-- The login token is kept in localStorage to keep the project simple. A real system would use secure cookies.
-- Large uploads: Next.js route handlers accept a 5 MB file here. If your host limits request size, check its limit.
+Use the Prisma model name from `backend/prisma/schema.prisma` (Prisma exposes model delegates in lower camel case). Do not import the database client into browser code.
